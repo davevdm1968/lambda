@@ -1,4 +1,10 @@
-import base64
+# Send WhatsApp from Lamda
+#
+# @author Unknown
+#
+# This is a modified script to Send CloudWatch Alarms to WhatsApp
+# You will need a https://www.twilio.com account
+#
 import json
 import os
 import urllib
