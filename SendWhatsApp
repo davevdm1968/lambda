@@ -3,7 +3,7 @@
 # @author Unknown
 #
 # This is a modified script to Send CloudWatch Alarms to WhatsApp
-# You will need a https://www.twilio.com account
+# You will need a www.twilio.com/referral/w8S37M account
 #
 import json
 import os
