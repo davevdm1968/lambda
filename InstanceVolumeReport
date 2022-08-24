@@ -1,0 +1,116 @@
+# Instance Volume Report
+#
+# @author Dave van der Merwe
+#
+# This script will search for all instances and their volumes 
+# It will write the report to an S3 bucket
+#
+import boto3
+import os
+import logging
+import csv
+from datetime import datetime
+#
+s3bucketname    = 'my-bucket'
+s3directory     = 'Reports/Instances/'
+s3bucketregion  = 'us-east-1'
+#filters         = [{'Name': 'instance-state-name', 'Values': ['running', 'stopped']}]
+filters        = [{'Name': 'instance-state-name', 'Values': ['running']}]
+datetime        = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p")
+#
+# logger config
+logger = logging.getLogger()
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s: %(levelname)s: %(message)s')
+#
+#
+def getdata(filter):
+    outlist = list()
+    # List all regions
+    client = boto3.client('ec2')
+    regions = [region['RegionName'] for region in client.describe_regions()['Regions']]
+    for region in regions:
+        logger.info(f'Scaning {region}')
+        session = boto3.Session(region_name=region)
+        ec2resource = session.resource('ec2')
+        instances = ec2resource.instances.filter(Filters=filter)
+        for instance in instances:
+            outline = list()
+            outline.append(region)
+            outline.append(instance.id)
+            volumes = instance.volumes.all()
+            for volume in volumes:
+                outline.append(volume.id)
+            logger.info(f'Found {outline}')
+            outlist.append(outline)
+    return outlist
+#
+def longest(list1):
+    longest_list = max(len(elem) for elem in list1)
+    return longest_list
+#
+def createcsv(alist, fdate):
+    file_name = f'InstanceVolumes_{fdate}.csv'
+    lambda_file = f'/tmp/{file_name}'
+    header = ['Region', 'Instance ID']
+    longest_list = longest(alist)
+    for x in range(2, longest_list):
+        header.append('Volume ID')
+    #
+    with open(lambda_file, 'w+') as fcsv:
+        write = csv.writer(fcsv)
+        write.writerow(header)
+        write.writerows(alist)
+    fcsv.close()
+    #
+    return lambda_file, file_name
+#
+def upload_to_aws(local_file, s3_file, s3_bucket):
+    s3 = boto3.client('s3',region_name=s3bucketregion)
+
+    try:
+        s3.upload_file(local_file, s3_bucket, s3_file)
+        url = s3.generate_presigned_url(
+            ClientMethod='get_object',
+            Params={
+                'Bucket': s3_bucket,
+                'Key': s3_file
+            },
+            ExpiresIn=24 * 3600
+        )
+
+        print("Upload Successful", url)
+        return url
+    except FileNotFoundError:
+        print("The file was not found")
+        return None
+    except NoCredentialsError:
+        print("Credentials not available")
+        return None
+#
+def sendfile2S3(bucket, key, file_name, file):
+    s3_path = f'{key}{file_name}'
+    upload_to_aws(file, s3_path, bucket)
+    try:
+        os.remove(file)
+    except:
+        logger.exception(f'Could not delete file {file_name}')
+    #
+#
+def lambda_handler(event, context):
+    datalist = list()
+    try:
+        datalist = getdata(filters)
+    except:
+        logger.exception('Could get EC2 data')
+    else:
+        try:
+            outfile, fname = createcsv(datalist, datetime)
+        except:
+            logger.exception('Could no create csv')
+        else:
+            try:
+                sendfile2S3(s3bucketname, s3directory, fname, outfile)
+            except:
+                logger.exception('Could not send file to S3')
+#
