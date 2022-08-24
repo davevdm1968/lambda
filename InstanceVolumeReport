@@ -3,7 +3,7 @@
 # @author Dave van der Merwe
 #
 # This script will search for all instances and their volumes 
-# It will write the report to an S3 bucket
+# It will write the report to an S3 bucket in csv format with a date and time stamp
 #
 import boto3
 import os
