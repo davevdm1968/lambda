@@ -5,6 +5,9 @@
 # This script will search for all volumes that are in an available state 
 # If the volume was detached more than older_than_days variable it will delete it
 #
+# The final delete step has been commented out so you can first test the script.
+# Remove the # in front of #v.delete() for it to actually delete the volume.
+#
 import boto3
 from datetime import datetime, timezone
 #
