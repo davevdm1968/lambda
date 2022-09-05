@@ -45,8 +45,6 @@ def lambda_handler(object, context):
                for region in ec2_client.describe_regions()['Regions']]
 
     for region in regions:
-        if (region != 'eu-west-1'):
-            continue
         ec2 = boto3.resource('ec2', region_name=region)
         client = boto3.client('cloudtrail', region_name=region)
         print("Region:", region)
